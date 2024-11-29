@@ -239,8 +239,8 @@ func (Tmp) CreateRecord() error {
 	return err
 }
 
-// GetFollowers retrieves the followers of a specified actor from the Bluesky API
-func (Tmp) GetFollowers(actor string, limit int, cursor string) error {
+// getFollowers retrieves the followers of a specified actor from the Bluesky API using the session
+func getFollowers(session *CreateSessionResponse, actor string, limit int, cursor string) (*GetFollowersResponse, error) {
 	// Create the request URL with query parameters
 	baseURL := os.Getenv("PDSHOST") + "/xrpc/app.bsky.graph.getFollowers"
 	params := url.Values{}
@@ -253,27 +253,62 @@ func (Tmp) GetFollowers(actor string, limit int, cursor string) error {
 	}
 	requestURL := fmt.Sprintf("%s?%s", baseURL, params.Encode())
 
-	// Send the GET request
-	resp, err := http.Get(requestURL)
+	// Create the HTTP request
+	req, err := http.NewRequest("GET", requestURL, nil)
 	if err != nil {
-		return fmt.Errorf("failed to send request: %w", err)
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+session.AccessJwt)
+
+	// Send the HTTP request
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	// Read and output the response body to the standard output
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("failed to read response body: %w", err)
+		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
+	fmt.Printf("Response Body:\n%s\n", string(body))
 
 	// Decode the response body into the GetFollowersResponse struct
 	var getFollowersResponse GetFollowersResponse
 	if err := json.Unmarshal(body, &getFollowersResponse); err != nil {
-		return fmt.Errorf("failed to unmarshal response body: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal response body: %w", err)
 	}
 
 	// Output the struct with JSON formatting and indentation
 	formattedResponse, err := json.MarshalIndent(getFollowersResponse, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal response struct: %w", err)
+	}
+	fmt.Printf("Formatted Response:\n%s\n", string(formattedResponse))
+
+	return &getFollowersResponse, nil
+}
+
+// GetFollowers retrieves the followers of a specified actor from the Bluesky API and outputs the results
+func (Tmp) GetFollowers(actor string) error {
+	// Authenticate to get the session
+	session, err := Authenticate()
+	if err != nil {
+		return err
+	}
+
+	limit := 1000
+	cursor := ""
+	// Call getFollowers to retrieve the followers
+	followersResponse, err := getFollowers(session, actor, limit, cursor)
+	if err != nil {
+		return err
+	}
+
+	// Output the struct with JSON formatting and indentation
+	formattedResponse, err := json.MarshalIndent(followersResponse, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal response struct: %w", err)
 	}
