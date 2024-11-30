@@ -77,21 +77,19 @@ type CreateRecordRequest struct {
 	SwapCommit string      `json:"swapCommit,omitempty"`
 }
 
-// CreateRecordResponse represents the structure of the response from the createRecord API
-type CreateRecordResponse struct {
-	URI              string `json:"uri"`
-	CID              string `json:"cid"`
-	Commit           string `json:"commit"`
-	ValidationStatus string `json:"validationStatus"`
+func getURL(path string) string {
+	pdshost := os.Getenv("PDSHOST")
+	// default to https://bsky.social
+	if pdshost == "" {
+		pdshost = "https://bsky.social"
+	}
+	return pdshost + path
 }
 
-// Authenticate authenticates to the Bluesky API using the provided credentials and returns a CreateSessionResponse
-func Authenticate() (*CreateSessionResponse, error) {
+// authenticate authenticates to the Bluesky API using the provided credentials and returns a CreateSessionResponse
+func authenticate() (*CreateSessionResponse, error) {
 	user := os.Getenv("BLUESKY_HANDLE")
 	pass := os.Getenv("BLUESKY_PASSWORD")
-
-	fmt.Printf("BLUESKY_HANDLE: %s\n", user)
-	fmt.Printf("BLUESKY_PASSWORD: %s\n", pass)
 
 	// Create the request body
 	requestBody, err := json.Marshal(map[string]string{
@@ -102,11 +100,8 @@ func Authenticate() (*CreateSessionResponse, error) {
 		return nil, fmt.Errorf("failed to marshal request body: %w", err)
 	}
 
-	// Output the JSON request body to the standard output
-	fmt.Printf("Request Body:\n%s\n", string(requestBody))
-
 	// Send the POST request
-	url := os.Getenv("PDSHOST") + "/xrpc/com.atproto.server.createSession"
+	url := getURL("/xrpc/com.atproto.server.createSession")
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(requestBody))
 	if err != nil {
 		return nil, fmt.Errorf("failed to send request: %w", err)
@@ -118,7 +113,6 @@ func Authenticate() (*CreateSessionResponse, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
-	fmt.Printf("Response Body:\n%s\n", string(body))
 
 	// Decode the response body into the CreateSessionResponse struct
 	var createSessionResponse CreateSessionResponse
@@ -126,26 +120,32 @@ func Authenticate() (*CreateSessionResponse, error) {
 		return nil, fmt.Errorf("failed to unmarshal response body: %w", err)
 	}
 
-	// Output the struct with JSON formatting and indentation
-	formattedResponse, err := json.MarshalIndent(createSessionResponse, "", "  ")
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal response struct: %w", err)
-	}
-	fmt.Printf("Formatted Response:\n%s\n", string(formattedResponse))
-
 	// Check the response status
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("failed to authenticate: %s", resp.Status)
 	}
 
-	fmt.Println("Successfully connected to Bluesky")
-
 	return &createSessionResponse, nil
+}
+
+// authenticate authenticates to the Bluesky API using the provided credentials and returns a CreateSessionResponse
+func (Tmp) Authenticate() error {
+	createSessionResponse, err := authenticate()
+	if err != nil {
+		return err
+	}
+	// Output the struct with JSON formatting and indentation
+	formattedResponse, err := json.MarshalIndent(createSessionResponse, "", "  ")
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%s\n", formattedResponse)
+	return nil
 }
 
 // CreateSession authenticates to the Bluesky API and outputs the pretty-printed JSON response
 func (Tmp) CreateSession() error {
-	session, err := Authenticate()
+	session, err := authenticate()
 	if err != nil {
 		return err
 	}
@@ -155,24 +155,21 @@ func (Tmp) CreateSession() error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal response struct: %w", err)
 	}
-	fmt.Printf("Formatted Response:\n%s\n", string(formattedResponse))
+	fmt.Printf("%s\n", formattedResponse)
 
 	return nil
 }
 
 // createRecord creates a record in the Bluesky API
-func createRecord(request CreateRecordRequest, session *CreateSessionResponse) (*CreateRecordResponse, error) {
+func createRecord(request CreateRecordRequest, session *CreateSessionResponse) ([]byte, error) {
 	// Create the request body
 	requestBody, err := json.Marshal(request)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request body: %w", err)
 	}
 
-	// Output the JSON request body to the standard output
-	fmt.Printf("Request Body:\n%s\n", string(requestBody))
-
 	// Create the HTTP request
-	url := os.Getenv("PDSHOST") + "/xrpc/com.atproto.repo.createRecord"
+	url := getURL("/xrpc/com.atproto.repo.createRecord")
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(requestBody))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -193,33 +190,19 @@ func createRecord(request CreateRecordRequest, session *CreateSessionResponse) (
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
-	fmt.Printf("Response Body:\n%s\n", string(body))
-
-	// Decode the response body into the CreateRecordResponse struct
-	var createRecordResponse CreateRecordResponse
-	if err := json.Unmarshal(body, &createRecordResponse); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal response body: %w", err)
-	}
-
-	// Output the struct with JSON formatting and indentation
-	formattedResponse, err := json.MarshalIndent(createRecordResponse, "", "  ")
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal response struct: %w", err)
-	}
-	fmt.Printf("Formatted Response:\n%s\n", string(formattedResponse))
 
 	// Check the response status
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("failed to create record: %s", resp.Status)
 	}
 
-	return &createRecordResponse, nil
+	return body, nil
 }
 
 // CreateRecord creates a new post in the Bluesky API
-func (Tmp) CreateRecord() error {
+func (Tmp) CreateRecord(text string) error {
 	// Authenticate to get the session
-	session, err := Authenticate()
+	session, err := authenticate()
 	if err != nil {
 		return err
 	}
@@ -229,20 +212,23 @@ func (Tmp) CreateRecord() error {
 		Repo:       session.Handle,
 		Collection: "app.bsky.feed.post",
 		Record: map[string]interface{}{
-			"text":      "Hello world! I posted this via the API (via @golang.org).",
+			"text":      text,
 			"createdAt": time.Now().UTC().Format(time.RFC3339),
 		},
 	}
 
 	// Call createRecord to create the new post
-	_, err = createRecord(request, session)
+	resp, err := createRecord(request, session)
+
+	fmt.Printf("%s\n", resp)
+
 	return err
 }
 
-// getFollowers retrieves the followers of a specified actor from the Bluesky API using the session
-func getFollowers(session *CreateSessionResponse, actor string, limit int, cursor string) (*GetFollowersResponse, error) {
+// getAccounts retrieves the followers of a specified actor from the Bluesky API using the session
+func getAccounts(session *CreateSessionResponse, endpoint, actor string, limit int, cursor string) (map[string]interface{}, error) {
 	// Create the request URL with query parameters
-	baseURL := os.Getenv("PDSHOST") + "/xrpc/app.bsky.graph.getFollowers"
+	baseURL := getURL(endpoint)
 	params := url.Values{}
 	params.Add("actor", actor)
 	if limit > 0 {
@@ -273,46 +259,86 @@ func getFollowers(session *CreateSessionResponse, actor string, limit int, curso
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
-	fmt.Printf("Response Body:\n%s\n", string(body))
 
-	// Decode the response body into the GetFollowersResponse struct
-	var getFollowersResponse GetFollowersResponse
-	if err := json.Unmarshal(body, &getFollowersResponse); err != nil {
+	// Decode the response body into a generic map
+	var response map[string]interface{}
+	if err := json.Unmarshal(body, &response); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response body: %w", err)
 	}
 
-	// Output the struct with JSON formatting and indentation
-	formattedResponse, err := json.MarshalIndent(getFollowersResponse, "", "  ")
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal response struct: %w", err)
-	}
-	fmt.Printf("Formatted Response:\n%s\n", string(formattedResponse))
-
-	return &getFollowersResponse, nil
+	return response, nil
 }
 
 // GetFollowers retrieves the followers of a specified actor from the Bluesky API and outputs the results
 func (Tmp) GetFollowers(actor string) error {
-	// Authenticate to get the session
-	session, err := Authenticate()
+	session, err := authenticate()
 	if err != nil {
 		return err
 	}
-
-	limit := 1000
+	limit := 100
 	cursor := ""
-	// Call getFollowers to retrieve the followers
-	followersResponse, err := getFollowers(session, actor, limit, cursor)
+	for {
+		followersResponse, err := getAccounts(session, "/xrpc/app.bsky.graph.getFollowers", actor, limit, cursor)
+		if err != nil {
+			return err
+		}
+
+		if val, ok := followersResponse["followers"]; ok {
+			followers := val.([]interface{})
+			for _, x := range followers {
+				formattedResponse, err := json.Marshal(x)
+				if err != nil {
+					return fmt.Errorf("failed to marshal response struct: %w", err)
+				}
+				fmt.Printf("%s\n", formattedResponse)
+			}
+		}
+
+		val, ok := followersResponse["cursor"]
+		if !ok {
+			break
+		}
+		cursor = val.(string)
+		if cursor == "" {
+			break
+		}
+	}
+	return nil
+}
+
+// GetFollows retrieves the followers of a specified actor from the Bluesky API and outputs the results
+func (Tmp) GetFollows(actor string) error {
+	session, err := authenticate()
 	if err != nil {
 		return err
 	}
+	limit := 100
+	cursor := ""
+	for {
+		followersResponse, err := getAccounts(session, "/xrpc/app.bsky.graph.getFollows", actor, limit, cursor)
+		if err != nil {
+			return err
+		}
 
-	// Output the struct with JSON formatting and indentation
-	formattedResponse, err := json.MarshalIndent(followersResponse, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal response struct: %w", err)
+		if val, ok := followersResponse["follows"]; ok {
+			followers := val.([]interface{})
+			for _, x := range followers {
+				formattedResponse, err := json.Marshal(x)
+				if err != nil {
+					return fmt.Errorf("failed to marshal response struct: %w", err)
+				}
+				fmt.Printf("%s\n", formattedResponse)
+			}
+		}
+
+		val, ok := followersResponse["cursor"]
+		if !ok {
+			break
+		}
+		cursor = val.(string)
+		if cursor == "" {
+			break
+		}
 	}
-	fmt.Printf("Formatted Response:\n%s\n", string(formattedResponse))
-
 	return nil
 }
