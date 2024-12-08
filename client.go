@@ -13,7 +13,7 @@ import (
 	"os"
 )
 
-// Client represents a client for the Bluesky API
+// Client is a client for the Bluesky API
 type Client struct {
 	BaseURL   string
 	AuthToken string
@@ -69,6 +69,7 @@ func NewClient() (*Client, error) {
 	}
 	client.BaseURL = pdshost
 
+	// todo: add logic to use existing (cached) session
 	_, err := client.CreateSession()
 	if err != nil {
 		return nil, err

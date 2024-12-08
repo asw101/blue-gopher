@@ -14,7 +14,7 @@ import (
 
 type Bs mg.Namespace
 
-// GetAuthorFeed retrieves a single page of an author feed and outputs the results
+// GetAuthorFeed <author> retrieves a single page of an author feed and outputs the results
 func (Bs) GetAuthorFeed(author string) error {
 	c, err := NewClient()
 	if err != nil {
@@ -41,7 +41,7 @@ func (Bs) GetAuthorFeed(author string) error {
 	return nil
 }
 
-// GetAuthorFeeds retrieves the author feed from the Bluesky API and outputs each item to the standard output
+// GetAuthorFeeds <authors> retrieves the author feed and outputs each item to the standard output
 func (Bs) GetAuthorFeeds(author string) error {
 	c, err := NewClient()
 	if err != nil {
@@ -80,7 +80,7 @@ func (Bs) GetAuthorFeeds(author string) error {
 	return nil
 }
 
-// GetProfiles retrieves the profiles of multiple actors from the Bluesky API and outputs the results
+// GetProfiles <profiles> retrieves the profiles of multiple actors and outputs the results
 func (Bs) GetProfiles(profiles string) error {
 	c, err := NewClient()
 	if err != nil {
@@ -113,7 +113,7 @@ func (Bs) GetProfiles(profiles string) error {
 	return nil
 }
 
-// GetFollowers retrieves the followers of a specified actor from the Bluesky API and outputs the results
+// GetFollowers <actor> retrieves the followers of a specified actor and outputs the results
 func (Bs) GetFollowers(actor string) error {
 	c, err := NewClient()
 	if err != nil {
@@ -153,7 +153,7 @@ func (Bs) GetFollowers(actor string) error {
 	return nil
 }
 
-// GetFollows retrieves the followers of a specified actor from the Bluesky API and outputs the results
+// GetFollows <actor> retrieves the followers of a specified actor and outputs the results
 func (Bs) GetFollows(actor string) error {
 	c, err := NewClient()
 	if err != nil {
@@ -193,14 +193,14 @@ func (Bs) GetFollows(actor string) error {
 	return nil
 }
 
-// CreateSession authenticates to the Bluesky API using the provided credentials and returns a CreateSessionResponse
+// CreateSession authenticates to the Bluesky API using the BLUESKY_HANDLE and BLUESKY_PASSWORD env vars and outputs the response
 func (Bs) CreateSession() error {
 	c, err := NewClient()
 	if err != nil {
 		return err
 	}
 
-	createSessionResponse, err := c.createSession()
+	createSessionResponse, err := c.CreateSession()
 	if err != nil {
 		return err
 	}
@@ -213,7 +213,7 @@ func (Bs) CreateSession() error {
 	return nil
 }
 
-// CreateRecord creates a new post in the Bluesky API
+// CreateRecord <text> creates a new post
 func (Bs) CreateRecord(text string) error {
 	c, err := NewClient()
 	if err != nil {
