@@ -10,5 +10,6 @@ import (
 )
 
 func main() {
+	os.Setenv("MAGEFILE_VERBOSE", "1")
 	os.Exit(mage.Main())
 }
