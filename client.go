@@ -21,6 +21,34 @@ type Client struct {
 	AuthToken string
 }
 
+// CreateSessionResponse represents the structure of the response from the createSession API
+type CreateSessionResponse struct {
+	DID    string `json:"did"`
+	DIDDoc struct {
+		Context            []string `json:"@context"`
+		ID                 string   `json:"id"`
+		AlsoKnownAs        []string `json:"alsoKnownAs"`
+		VerificationMethod []struct {
+			ID                 string `json:"id"`
+			Type               string `json:"type"`
+			Controller         string `json:"controller"`
+			PublicKeyMultibase string `json:"publicKeyMultibase"`
+		} `json:"verificationMethod"`
+		Service []struct {
+			ID              string `json:"id"`
+			Type            string `json:"type"`
+			ServiceEndpoint string `json:"serviceEndpoint"`
+		} `json:"service"`
+	} `json:"didDoc"`
+	Handle          string `json:"handle"`
+	Email           string `json:"email"`
+	EmailConfirmed  bool   `json:"emailConfirmed"`
+	EmailAuthFactor bool   `json:"emailAuthFactor"`
+	AccessJwt       string `json:"accessJwt"`
+	RefreshJwt      string `json:"refreshJwt"`
+	Active          bool   `json:"active"`
+}
+
 // authenticate authenticates to the Bluesky API using the provided credentials and sets the AuthToken on the client
 func (c *Client) authenticate() error {
 	user := os.Getenv("BLUESKY_HANDLE")
@@ -70,16 +98,16 @@ func NewClient() (*Client, error) {
 
 // SendRequest makes a generic request to a given URL
 func (c *Client) SendRequest(method, url string, requestBody interface{}) ([]byte, error) {
-	var body io.Reader
+	var b []byte
+	var err error
 	if requestBody != nil {
-		jsonBody, err := json.Marshal(requestBody)
+		b, err = json.Marshal(requestBody)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal request body: %w", err)
 		}
-		body = bytes.NewBuffer(jsonBody)
 	}
 
-	req, err := http.NewRequest(method, url, body)
+	req, err := http.NewRequest(method, url, bytes.NewReader(b))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -89,22 +117,22 @@ func (c *Client) SendRequest(method, url string, requestBody interface{}) ([]byt
 	}
 
 	client := &http.Client{}
-	resp, err := client.Do(req)
+	res, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer res.Body.Close()
 
-	responseBody, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("request failed with status code %d: %s", resp.StatusCode, responseBody)
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("request failed with status code %d: %s", res.StatusCode, body)
 	}
 
-	return responseBody, nil
+	return body, nil
 }
 
 // ClientAuthorFeed retrieves the author feed from the Bluesky API using the client
@@ -123,15 +151,13 @@ func (c *Client) ClientAuthorFeed(actor string, limit int, cursor, filter string
 	params.Set("includePins", fmt.Sprintf("%t", includePins))
 	requestURL := baseURL + "?" + params.Encode()
 
-	// Make the request
-	responseBody, err := c.SendRequest("GET", requestURL, nil)
+	body, err := c.SendRequest("GET", requestURL, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	// Unmarshal the response
 	var result map[string]interface{}
-	if err := json.Unmarshal(responseBody, &result); err != nil {
+	if err := json.Unmarshal(body, &result); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response body: %w", err)
 	}
 
@@ -154,17 +180,16 @@ func (Two) GetAuthorFeed2(author string) error {
 	filter := "posts_with_replies"
 
 	// Call ClientAuthorFeed to retrieve the author feed
-	authorFeedResponse, err := c.ClientAuthorFeed(author, limit, cursor, filter, includePins)
+	resp, err := c.ClientAuthorFeed(author, limit, cursor, filter, includePins)
 	if err != nil {
 		return err
 	}
 
-	// Output the results
-	responseBody, err := json.MarshalIndent(authorFeedResponse, "", "  ")
+	b, err := json.MarshalIndent(resp, "", "  ")
 	if err != nil {
-		return fmt.Errorf("failed to marshal response body: %w", err)
+		return err
 	}
-	fmt.Println(string(responseBody))
+	fmt.Printf("%s\n", b)
 
 	return nil
 }
