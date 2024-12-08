@@ -11,6 +11,8 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+
+	"github.com/magefile/mage/mg"
 )
 
 // Client represents a client for the Bluesky API
@@ -90,12 +92,55 @@ func authenticate2() (*CreateSessionResponse, error) {
 	return &createSessionResponse, nil
 }
 
+func authenticate3(client *Client) (*CreateSessionResponse, error) {
+	user := os.Getenv("BLUESKY_HANDLE")
+	pass := os.Getenv("BLUESKY_PASSWORD")
+
+	// Send the POST request using SendRequest method
+	url := client.BaseURL + "/xrpc/com.atproto.server.createSession"
+	requestBody := map[string]string{
+		"identifier": user,
+		"password":   pass,
+	}
+	respBody, err := client.SendRequest("POST", url, requestBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+
+	// Decode the response body into the CreateSessionResponse struct
+	var createSessionResponse CreateSessionResponse
+	if err := json.Unmarshal(respBody, &createSessionResponse); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response body: %w", err)
+	}
+
+	// Check the response status
+	if createSessionResponse.AccessJwt == "" {
+		return nil, fmt.Errorf("failed to authenticate: missing access token")
+	}
+
+	return &createSessionResponse, nil
+}
+
+// NewClient3 creates a new Bluesky API client using authenticate3
+func NewClient3() (*Client, error) {
+	client := &Client{}
+	client.BaseURL = getURL("")
+
+	resp, err := authenticate3(client)
+	if err != nil {
+		return nil, err
+	}
+	client.AuthToken = resp.AccessJwt
+
+	return client, nil
+}
+
 // NewClient creates a new Bluesky API client
 func NewClient() (*Client, error) {
 	client := &Client{}
 	client.BaseURL = getURL("")
 
-	resp, err := authenticate()
+	resp, err := authenticate2()
 	if err != nil {
 		return nil, err
 	}
@@ -109,11 +154,12 @@ func NewClient2() (*Client, error) {
 	client := &Client{}
 	client.BaseURL = getURL("")
 
-	err := client.authenticate()
+	resp, err := authenticate()
+	//err := client.authenticate()
 	if err != nil {
 		return nil, err
 	}
-	//client.AuthToken = resp.AccessJwt
+	client.AuthToken = resp.AccessJwt
 
 	return client, nil
 }
@@ -189,9 +235,11 @@ func (c *Client) ClientAuthorFeed(actor string, limit int, cursor, filter string
 	return result, nil
 }
 
+type Two mg.Namespace
+
 // GetAuthorFeed2 retrieves the author feed and outputs the results
-func (Tmp) GetAuthorFeed2(author string) error {
-	c, err := NewClient()
+func (Two) GetAuthorFeed2(author string) error {
+	c, err := NewClient3()
 	if err != nil {
 		return err
 	}
