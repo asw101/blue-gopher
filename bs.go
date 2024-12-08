@@ -14,7 +14,7 @@ import (
 
 type Bs mg.Namespace
 
-// GetAuthorFeed <author> retrieves a single page of an author feed and outputs the results
+// GetAuthorFeed <author> retrieves a single page of an author feed and outputs the response
 func (Bs) GetAuthorFeed(author string) error {
 	c, err := NewClient()
 	if err != nil {
@@ -41,7 +41,7 @@ func (Bs) GetAuthorFeed(author string) error {
 	return nil
 }
 
-// GetAuthorFeeds <authors> retrieves the author feed and outputs each item to the standard output
+// GetAuthorFeeds <authors> retrieves the author feed and outputs the results
 func (Bs) GetAuthorFeeds(author string) error {
 	c, err := NewClient()
 	if err != nil {
