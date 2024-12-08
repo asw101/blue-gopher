@@ -176,6 +176,10 @@ func (c *Client) GetAuthorFeed(actor string, limit int, cursor, filter string, i
 
 // GetProfiles retrieves profiles from the Bluesky API using the client
 func (c *Client) GetProfiles(actors []string) (map[string]interface{}, error) {
+	if len(actors) > 25 {
+		return nil, fmt.Errorf("too many actors: maximum allowed is 25")
+	}
+
 	baseURL := c.BaseURL + "/xrpc/app.bsky.actor.getProfiles"
 	params := url.Values{}
 	for _, actor := range actors {
