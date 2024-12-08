@@ -14,7 +14,7 @@ import (
 
 type Bs mg.Namespace
 
-// GetAuthorFeed <author> retrieves a single page of an author feed and outputs the response
+// GetAuthorFeed <author> retrieves a single page of an author feed
 func (Bs) GetAuthorFeed(author string) error {
 	c, err := NewClient()
 	if err != nil {
@@ -41,7 +41,7 @@ func (Bs) GetAuthorFeed(author string) error {
 	return nil
 }
 
-// GetAuthorFeeds <authors> retrieves the author feed and outputs the results
+// GetAuthorFeeds <authors> retrieves the author feed
 func (Bs) GetAuthorFeeds(author string) error {
 	c, err := NewClient()
 	if err != nil {
@@ -80,7 +80,7 @@ func (Bs) GetAuthorFeeds(author string) error {
 	return nil
 }
 
-// GetProfiles <profiles> retrieves the profiles of multiple actors and outputs the results
+// GetProfiles <profiles> retrieves the profiles of multiple actors
 func (Bs) GetProfiles(profiles string) error {
 	c, err := NewClient()
 	if err != nil {
@@ -113,7 +113,7 @@ func (Bs) GetProfiles(profiles string) error {
 	return nil
 }
 
-// GetFollowers <actor> retrieves the followers of a specified actor and outputs the results
+// GetFollowers <actor> retrieves the followers of a specified actor
 func (Bs) GetFollowers(actor string) error {
 	c, err := NewClient()
 	if err != nil {
@@ -153,7 +153,7 @@ func (Bs) GetFollowers(actor string) error {
 	return nil
 }
 
-// GetFollows <actor> retrieves the followers of a specified actor and outputs the results
+// GetFollows <actor> retrieves the followers of a specified actor
 func (Bs) GetFollows(actor string) error {
 	c, err := NewClient()
 	if err != nil {
@@ -193,7 +193,7 @@ func (Bs) GetFollows(actor string) error {
 	return nil
 }
 
-// CreateSession authenticates to the Bluesky API using the BLUESKY_HANDLE and BLUESKY_PASSWORD env vars and outputs the response
+// CreateSession authenticates to the Bluesky API using the BLUESKY_HANDLE and BLUESKY_PASSWORD env vars
 func (Bs) CreateSession() error {
 	c, err := NewClient()
 	if err != nil {
