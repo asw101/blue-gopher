@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"time"
 )
 
 // Client is a client for the Bluesky API
@@ -126,7 +127,7 @@ func (c *Client) SendRequest(method, url string, requestBody interface{}) ([]byt
 		req.Header.Set("Authorization", "Bearer "+c.AuthToken)
 	}
 
-	client := &http.Client{}
+	client := &http.Client{Timeout: 10 * time.Second}
 	res, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute request: %w", err)
