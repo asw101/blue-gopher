@@ -26,140 +26,44 @@ func (c *Client) authenticate() error {
 	user := os.Getenv("BLUESKY_HANDLE")
 	pass := os.Getenv("BLUESKY_PASSWORD")
 
-	// Create the request body
-	requestBody, err := json.Marshal(map[string]string{
+	url := c.BaseURL + "/xrpc/com.atproto.server.createSession"
+	req := map[string]string{
 		"identifier": user,
 		"password":   pass,
-	})
+	}
+	resp, err := c.SendRequest("POST", url, req)
 	if err != nil {
-		return fmt.Errorf("failed to marshal request body: %w", err)
+		return fmt.Errorf("failed to send request: %w", err)
 	}
 
-	url := c.BaseURL + "/xrpc/com.atproto.server.createSession"
-	respBody, err := c.SendRequest("POST", url, requestBody)
-	if err != nil {
-		return err
-	}
-
+	// Decode the response body into the CreateSessionResponse struct
 	var createSessionResponse CreateSessionResponse
-	if err := json.Unmarshal(respBody, &createSessionResponse); err != nil {
+	if err := json.Unmarshal(resp, &createSessionResponse); err != nil {
 		return fmt.Errorf("failed to unmarshal response body: %w", err)
 	}
 
+	if createSessionResponse.AccessJwt == "" {
+		return fmt.Errorf("failed to authenticate: missing access token")
+	}
 	c.AuthToken = createSessionResponse.AccessJwt
 	return nil
-}
-
-// authenticate authenticates to the Bluesky API using the provided credentials and returns a CreateSessionResponse
-func authenticate2() (*CreateSessionResponse, error) {
-	user := os.Getenv("BLUESKY_HANDLE")
-	pass := os.Getenv("BLUESKY_PASSWORD")
-
-	// Create the request body
-	requestBody, err := json.Marshal(map[string]string{
-		"identifier": user,
-		"password":   pass,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request body: %w", err)
-	}
-
-	// Send the POST request
-	url := getURL("/xrpc/com.atproto.server.createSession")
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(requestBody))
-	if err != nil {
-		return nil, fmt.Errorf("failed to send request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	// Read and output the response body to the standard output
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
-	}
-
-	// Decode the response body into the CreateSessionResponse struct
-	var createSessionResponse CreateSessionResponse
-	if err := json.Unmarshal(body, &createSessionResponse); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal response body: %w", err)
-	}
-
-	// Check the response status
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to authenticate: %s", resp.Status)
-	}
-
-	return &createSessionResponse, nil
-}
-
-func authenticate3(client *Client) (*CreateSessionResponse, error) {
-	user := os.Getenv("BLUESKY_HANDLE")
-	pass := os.Getenv("BLUESKY_PASSWORD")
-
-	// Send the POST request using SendRequest method
-	url := client.BaseURL + "/xrpc/com.atproto.server.createSession"
-	requestBody := map[string]string{
-		"identifier": user,
-		"password":   pass,
-	}
-	respBody, err := client.SendRequest("POST", url, requestBody)
-	if err != nil {
-		return nil, fmt.Errorf("failed to send request: %w", err)
-	}
-
-	// Decode the response body into the CreateSessionResponse struct
-	var createSessionResponse CreateSessionResponse
-	if err := json.Unmarshal(respBody, &createSessionResponse); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal response body: %w", err)
-	}
-
-	// Check the response status
-	if createSessionResponse.AccessJwt == "" {
-		return nil, fmt.Errorf("failed to authenticate: missing access token")
-	}
-
-	return &createSessionResponse, nil
-}
-
-// NewClient3 creates a new Bluesky API client using authenticate3
-func NewClient3() (*Client, error) {
-	client := &Client{}
-	client.BaseURL = getURL("")
-
-	resp, err := authenticate3(client)
-	if err != nil {
-		return nil, err
-	}
-	client.AuthToken = resp.AccessJwt
-
-	return client, nil
 }
 
 // NewClient creates a new Bluesky API client
 func NewClient() (*Client, error) {
 	client := &Client{}
-	client.BaseURL = getURL("")
 
-	resp, err := authenticate2()
+	pdshost := os.Getenv("PDSHOST")
+	// default to https://bsky.social
+	if pdshost == "" {
+		pdshost = "https://bsky.social"
+	}
+	client.BaseURL = pdshost
+
+	err := client.authenticate()
 	if err != nil {
 		return nil, err
 	}
-	client.AuthToken = resp.AccessJwt
-
-	return client, nil
-}
-
-// NewClient2 creates a new Bluesky API client
-func NewClient2() (*Client, error) {
-	client := &Client{}
-	client.BaseURL = getURL("")
-
-	resp, err := authenticate()
-	//err := client.authenticate()
-	if err != nil {
-		return nil, err
-	}
-	client.AuthToken = resp.AccessJwt
 
 	return client, nil
 }
@@ -168,18 +72,17 @@ func NewClient2() (*Client, error) {
 func (c *Client) SendRequest(method, url string, requestBody interface{}) ([]byte, error) {
 	var body io.Reader
 	if requestBody != nil {
-		jsonData, err := json.Marshal(requestBody)
+		jsonBody, err := json.Marshal(requestBody)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal request body: %w", err)
 		}
-		body = bytes.NewBuffer(jsonData)
+		body = bytes.NewBuffer(jsonBody)
 	}
 
 	req, err := http.NewRequest(method, url, body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
-
 	req.Header.Set("Content-Type", "application/json")
 	if c.AuthToken != "" {
 		req.Header.Set("Authorization", "Bearer "+c.AuthToken)
@@ -197,7 +100,7 @@ func (c *Client) SendRequest(method, url string, requestBody interface{}) ([]byt
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 
-	if resp.StatusCode >= 400 {
+	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("request failed with status code %d: %s", resp.StatusCode, responseBody)
 	}
 
@@ -239,7 +142,7 @@ type Two mg.Namespace
 
 // GetAuthorFeed2 retrieves the author feed and outputs the results
 func (Two) GetAuthorFeed2(author string) error {
-	c, err := NewClient3()
+	c, err := NewClient()
 	if err != nil {
 		return err
 	}
