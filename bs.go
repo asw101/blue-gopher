@@ -100,7 +100,7 @@ func (Bs) GetProfiles(profiles string) error {
 
 	list, ok := val.([]interface{})
 	if !ok {
-		fmt.Errorf("cannot type assert profiles to []interface{}")
+		return fmt.Errorf("cannot type assert profiles to []interface{}")
 	}
 	for _, x := range list {
 		formattedResponse, err := json.Marshal(x)
@@ -168,7 +168,7 @@ func (Bs) GetFollows(actor string) error {
 		}
 
 		if val, ok := accountsResponse["follows"]; ok {
-			accounts := val.([]interface{})
+			accounts, ok := val.([]interface{})
 			if !ok {
 				return fmt.Errorf("Cannot type assert follows to []interface{}")
 			}
