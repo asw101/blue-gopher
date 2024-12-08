@@ -4,8 +4,11 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
+	"log"
+	"os"
 	"strings"
 	"time"
 
@@ -238,5 +241,118 @@ func (Bs) CreateRecord(text string) error {
 	}
 
 	fmt.Printf("%s\n", b)
+	return nil
+}
+
+// GetAuthorFeedsBulk <pageLimit> retrieves the author feed for a list of authors. page size is 100. pages = 0 for no limit.
+func (Bs) GetAuthorFeedsBulk(pageLimit int) error {
+	c, err := NewClient()
+	if err != nil {
+		return err
+	}
+
+	limit := 100
+	cursor := ""
+	includePins := true
+	filter := "posts_with_replies"
+
+	scanner := bufio.NewScanner(os.Stdin)
+	for scanner.Scan() {
+		author := scanner.Text()
+		log.Printf("author: %s\n", author)
+		page := 1
+		for {
+			authorFeedResponse, err := c.GetAuthorFeed(author, limit, cursor, filter, includePins)
+			if err != nil {
+				return err
+			}
+
+			if feed, ok := authorFeedResponse["feed"].([]interface{}); ok {
+				for _, item := range feed {
+					formattedItem, err := json.Marshal(item)
+					if err != nil {
+						return fmt.Errorf("failed to marshal feed item: %w", err)
+					}
+					fmt.Printf("%s\n", formattedItem)
+				}
+			}
+
+			if nextCursor, ok := authorFeedResponse["cursor"].(string); ok && nextCursor != "" {
+				cursor = nextCursor
+			} else {
+				break
+			}
+
+			page++
+			// if pages = 0, skip limit
+			if page > pageLimit && pageLimit != 0 {
+				break
+			}
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("error reading authors from input: %w", err)
+	}
+
+	return nil
+}
+
+// GetProfilesBulk retrieves the profiles of multiple actors from standard input
+func (Bs) GetProfilesBulk() error {
+	c, err := NewClient()
+	if err != nil {
+		return err
+	}
+
+	// todo: loop through items vs appending to a single list
+	scanner := bufio.NewScanner(os.Stdin)
+	var actors []string
+	for scanner.Scan() {
+		line := scanner.Text()
+		actors = append(actors, strings.Split(line, ",")...)
+	}
+
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("failed to read from stdin: %w", err)
+	}
+
+	batchSize := 25
+	for i := 0; i < len(actors); i += batchSize {
+		end := i + batchSize
+		if end > len(actors) {
+			end = len(actors)
+		}
+
+		profilesResponse, err := c.GetProfiles(actors[i:end])
+		if err != nil {
+			return err
+		}
+
+		if profilesResponse == nil {
+			return fmt.Errorf("profiles response is nil")
+		}
+
+		val, ok := profilesResponse["profiles"]
+		if !ok {
+			return fmt.Errorf("profiles not found in response")
+		}
+
+		list, ok := val.([]interface{})
+		if !ok {
+			return fmt.Errorf("invalid profiles format")
+		}
+
+		for _, item := range list {
+			//log.Printf("item: %s\n", item)
+			formattedItem, err := json.Marshal(item)
+			if err != nil {
+				return fmt.Errorf("failed to marshal feed item: %w", err)
+			}
+			log.Printf("%s\n", formattedItem)
+			fmt.Printf("%s\n", formattedItem)
+		}
+	}
+
 	return nil
 }
