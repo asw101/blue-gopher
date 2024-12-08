@@ -7,7 +7,6 @@ import (
 	"bufio"
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 
@@ -25,11 +24,6 @@ func getConnection() (*sql.DB, error) {
 		return nil, fmt.Errorf("failed to connect to the database: %w", err)
 	}
 	return db, nil
-}
-
-// Hello says hello
-func (Pg) Hello() error {
-	return errors.New("not implemented")
 }
 
 // ListTables lists all tables in the PostgreSQL database
