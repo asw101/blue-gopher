@@ -251,17 +251,17 @@ func (Bs) GetAuthorFeedsBulk(pageLimit int) error {
 		return err
 	}
 
-	limit := 100
-	cursor := ""
-	includePins := true
-	filter := "posts_with_replies"
-
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
 		author := scanner.Text()
-		log.Printf("author: %s\n", author)
 		page := 1
+
+		limit := 100
+		cursor := ""
+		includePins := true
+		filter := "posts_with_replies"
 		for {
+			log.Printf("author: %s | page: %d\n", author, page)
 			authorFeedResponse, err := c.GetAuthorFeed(author, limit, cursor, filter, includePins)
 			if err != nil {
 				return err
