@@ -241,3 +241,56 @@ func (c *Client) CreateRecord(request CreateRecordRequest) (map[string]interface
 
 	return result, nil
 }
+
+// SearchPosts searches posts in the Bluesky API
+func (c *Client) SearchPosts(q string, limit int, cursor, sort, since, until, mentions, author, lang, domain, postURL string, tags []string) (map[string]interface{}, error) {
+	baseURL := c.BaseURL + "/xrpc/app.bsky.feed.searchPosts"
+	params := url.Values{}
+	params.Add("q", q)
+	if limit > 0 {
+		params.Add("limit", fmt.Sprintf("%d", limit))
+	}
+	if cursor != "" {
+		params.Add("cursor", cursor)
+	}
+	if sort != "" {
+		params.Add("sort", sort)
+	}
+	if since != "" {
+		params.Add("since", since)
+	}
+	if until != "" {
+		params.Add("until", until)
+	}
+	if mentions != "" {
+		params.Add("mentions", mentions)
+	}
+	if author != "" {
+		params.Add("author", author)
+	}
+	if lang != "" {
+		params.Add("lang", lang)
+	}
+	if domain != "" {
+		params.Add("domain", domain)
+	}
+	if postURL != "" {
+		params.Add("url", postURL)
+	}
+	for _, tag := range tags {
+		params.Add("tag", tag)
+	}
+	requestURL := fmt.Sprintf("%s?%s", baseURL, params.Encode())
+
+	body, err := c.SendRequest("GET", requestURL, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var response map[string]interface{}
+	if err := json.Unmarshal(body, &response); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response body: %w", err)
+	}
+
+	return response, nil
+}
