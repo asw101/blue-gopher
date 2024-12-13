@@ -390,8 +390,8 @@ func (Bs) SearchPosts(query string) error {
 	return nil
 }
 
-// SearchPosts <query> searches posts and outputs multiple pages
-func (Bs) SearchPostsBulk(query string, pageLimit int) error {
+// SearchPostsBulk <pageLimit> <query> searches posts and outputs multiple pages
+func (Bs) SearchPostsBulk(pageLimit int, query string) error {
 	c, err := NewClient()
 	if err != nil {
 		return err
