@@ -356,3 +356,92 @@ func (Bs) GetProfilesBulk() error {
 
 	return nil
 }
+
+// SearchPosts <query> searches posts and outputs the first page
+func (Bs) SearchPosts(query string) error {
+	c, err := NewClient()
+	if err != nil {
+		return err
+	}
+
+	limit := 100
+	cursor := ""
+	sort := "latest"
+	since := ""
+	until := ""
+	mentions := ""
+	author := ""
+	lang := ""
+	domain := ""
+	url := ""
+	tags := []string{}
+
+	resp, err := c.SearchPosts(query, limit, cursor, sort, since, until, mentions, author, lang, domain, url, tags)
+	if err != nil {
+		return err
+	}
+
+	b, err := json.MarshalIndent(resp, "", "  ")
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%s\n", b)
+
+	return nil
+}
+
+// SearchPosts <query> searches posts and outputs multiple pages
+func (Bs) SearchPostsBulk(query string, pageLimit int) error {
+	c, err := NewClient()
+	if err != nil {
+		return err
+	}
+
+	limit := 100
+	cursor := ""
+	page := 1
+
+	for {
+		log.Printf("page: %d\n", page)
+		searchResponse, err := c.SearchPosts(
+			query,    // q
+			limit,    // limit
+			cursor,   // cursor
+			"latest", // sort
+			"",       // since
+			"",       // until
+			"",       // mentions
+			"",       // author
+			"",       // lang
+			"",       // domain
+			"",       // postURL
+			nil,      // tags
+		)
+		if err != nil {
+			return err
+		}
+
+		if feed, ok := searchResponse["posts"].([]interface{}); ok {
+			for _, item := range feed {
+				formattedItem, err := json.Marshal(item)
+				if err != nil {
+					return fmt.Errorf("failed to marshal feed item: %w", err)
+				}
+				fmt.Printf("%s\n", formattedItem)
+			}
+		}
+
+		if nextCursor, ok := searchResponse["cursor"].(string); ok && nextCursor != "" {
+			cursor = nextCursor
+		} else {
+			break
+		}
+
+		page++
+		if page > pageLimit && pageLimit != 0 {
+			break
+		}
+	}
+
+	return nil
+}
