@@ -14,8 +14,12 @@ Targets:
   bs:getAuthorFeedsBulk    <pageLimit> retrieves the author feed for a list of authors.
   bs:getFollowers          <actor> retrieves the followers of a specified actor
   bs:getFollows            <actor> retrieves the followers of a specified actor
+  bs:getProfile            <actor> retrieves the profile for a given actor and prints the profile data
   bs:getProfiles           <profiles> retrieves the profiles of multiple actors
   bs:getProfilesBulk       retrieves the profiles of multiple actors from standard input
+  bs:listCreate            <name> <description> creates a new list
+  bs:listItem              <listURL> <actor> adds an actor to a list by its URL
+  bs:listItemBulk          <listURL> reads DIDs from standard input and adds them to the list
   bs:searchPosts           <query> searches posts and outputs the first page
   bs:searchPostsBulk       <pageLimit> <query> searches posts and outputs multiple pages
   hello:hello              says hello
