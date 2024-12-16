@@ -349,7 +349,7 @@ func (c *Client) ListCreate(purpose, name, description string, createdAt time.Ti
 }
 
 // ListItem adds a member to a list in the Bluesky API
-func (c *Client) ListItem(memberDID, targetListURI string, createdAt time.Time) (map[string]interface{}, error) {
+func (c *Client) ListItem(listURI, did string, createdAt time.Time) (map[string]interface{}, error) {
 	url := c.BaseURL + "/xrpc/com.atproto.repo.createRecord"
 
 	request := CreateRecordRequest{
@@ -361,8 +361,8 @@ func (c *Client) ListItem(memberDID, targetListURI string, createdAt time.Time) 
 			CreatedAt string `json:"createdAt"`
 			Type      string `json:"$type"`
 		}{
-			Subject:   memberDID,
-			List:      targetListURI,
+			Subject:   did,
+			List:      listURI,
 			CreatedAt: createdAt.Format(time.RFC3339),
 			Type:      "app.bsky.graph.listitem",
 		},
@@ -381,8 +381,8 @@ func (c *Client) ListItem(memberDID, targetListURI string, createdAt time.Time) 
 	return result, nil
 }
 
-// GetListUriFromUrl parses the given URL and constructs the AT URI
-func (c *Client) GetListUriFromUrl(listURL string) (string, error) {
+// ListATURI parses the given URL and constructs the AT URI
+func (c *Client) ListATURI(listURL string) (string, error) {
 	// Remove any query parameters
 	listURL = strings.Split(listURL, "?")[0]
 

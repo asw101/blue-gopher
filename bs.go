@@ -446,22 +446,21 @@ func (Bs) SearchPostsBulk(pageLimit int, query string) error {
 	return nil
 }
 
-// CreateList <purpose> <name> <description> creates a new list
-func (Bs) CreateList(name, description string) error {
+// ListCreate <name> <description> creates a new list
+func (Bs) ListCreate(name, description string) error {
 	c, err := NewClient()
 	if err != nil {
 		return err
 	}
 
-	createdAt := time.Now().UTC()
-
 	purpose := "app.bsky.graph.defs#curatelist"
+	createdAt := time.Now().UTC()
 	resp, err := c.ListCreate(purpose, name, description, createdAt)
 	if err != nil {
 		return err
 	}
 
-	b, err := json.MarshalIndent(resp, "", "  ")
+	b, err := json.Marshal(resp)
 	if err != nil {
 		return err
 	}
@@ -477,14 +476,12 @@ func (Bs) GetProfile(actor string) error {
 		return err
 	}
 
-	// Retrieve the profile data
 	profile, err := c.GetProfile(actor)
 	if err != nil {
 		return err
 	}
 
-	// Print the profile data
-	b, err := json.MarshalIndent(profile, "", "  ")
+	b, err := json.Marshal(profile)
 	if err != nil {
 		return err
 	}
@@ -493,15 +490,15 @@ func (Bs) GetProfile(actor string) error {
 	return nil
 }
 
-// ListItem <username> <listURL> adds an actor to a list by its URL
-func (Bs) ListItem(listURL, username string) error {
+// ListItem <listURL> <actor> adds an actor to a list by its URL
+func (Bs) ListItem(listURL, actor string) error {
 	c, err := NewClient()
 	if err != nil {
 		return err
 	}
 
 	// Retrieve the profile data to get the DID
-	profile, err := c.GetProfile(username)
+	profile, err := c.GetProfile(actor)
 	if err != nil {
 		return err
 	}
@@ -512,20 +509,20 @@ func (Bs) ListItem(listURL, username string) error {
 	}
 
 	// Convert listURL to AT URI
-	atURI, err := c.GetListUriFromUrl(listURL)
+	atURI, err := c.ListATURI(listURL)
 	if err != nil {
 		return err
 	}
 
 	// Add the actor to the list
 	createdAt := time.Now().UTC()
-	resp, err := c.ListItem(did, atURI, createdAt)
+	resp, err := c.ListItem(atURI, did, createdAt)
 	if err != nil {
 		return err
 	}
 
 	// Print the response
-	b, err := json.MarshalIndent(resp, "", "  ")
+	b, err := json.Marshal(resp)
 	if err != nil {
 		return err
 	}
@@ -542,7 +539,7 @@ func (Bs) ListItemBulk(listURL string) error {
 	}
 
 	// Convert listURL to AT URI
-	atURI, err := c.GetListUriFromUrl(listURL)
+	atURI, err := c.ListATURI(listURL)
 	if err != nil {
 		return err
 	}
@@ -574,14 +571,14 @@ func (Bs) ListItemBulk(listURL string) error {
 
 		// Add the actor to the list
 		createdAt := time.Now().UTC()
-		resp, err := c.ListItem(did, atURI, createdAt)
+		resp, err := c.ListItem(atURI, did, createdAt)
 		if err != nil {
 			fmt.Printf("Error adding DID %s to list: %v\n", did, err)
 			continue
 		}
 
 		// Print the response
-		b, err := json.MarshalIndent(resp, "", "  ")
+		b, err := json.Marshal(resp)
 		if err != nil {
 			fmt.Printf("Error marshaling response for DID %s: %v\n", did, err)
 			continue
