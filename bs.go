@@ -445,3 +445,153 @@ func (Bs) SearchPostsBulk(pageLimit int, query string) error {
 
 	return nil
 }
+
+// CreateList <purpose> <name> <description> creates a new list
+func (Bs) CreateList(name, description string) error {
+	c, err := NewClient()
+	if err != nil {
+		return err
+	}
+
+	createdAt := time.Now().UTC()
+
+	purpose := "app.bsky.graph.defs#curatelist"
+	resp, err := c.ListCreate(purpose, name, description, createdAt)
+	if err != nil {
+		return err
+	}
+
+	b, err := json.MarshalIndent(resp, "", "  ")
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%s\n", b)
+
+	return nil
+}
+
+// GetProfile <actor> retrieves the profile for a given actor and prints the profile data
+func (Bs) GetProfile(actor string) error {
+	c, err := NewClient()
+	if err != nil {
+		return err
+	}
+
+	// Retrieve the profile data
+	profile, err := c.GetProfile(actor)
+	if err != nil {
+		return err
+	}
+
+	// Print the profile data
+	b, err := json.MarshalIndent(profile, "", "  ")
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%s\n", b)
+
+	return nil
+}
+
+// ListItem <username> <listURL> adds an actor to a list by its URL
+func (Bs) ListItem(listURL, username string) error {
+	c, err := NewClient()
+	if err != nil {
+		return err
+	}
+
+	// Retrieve the profile data to get the DID
+	profile, err := c.GetProfile(username)
+	if err != nil {
+		return err
+	}
+
+	did, ok := profile["did"].(string)
+	if !ok {
+		return fmt.Errorf("failed to get DID from profile")
+	}
+
+	// Convert listURL to AT URI
+	atURI, err := c.GetListUriFromUrl(listURL)
+	if err != nil {
+		return err
+	}
+
+	// Add the actor to the list
+	createdAt := time.Now().UTC()
+	resp, err := c.ListItem(did, atURI, createdAt)
+	if err != nil {
+		return err
+	}
+
+	// Print the response
+	b, err := json.MarshalIndent(resp, "", "  ")
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%s\n", b)
+
+	return nil
+}
+
+// ListItemBulk <listURL> reads DIDs from standard input and adds them to the list
+func (Bs) ListItemBulk(listURL string) error {
+	c, err := NewClient()
+	if err != nil {
+		return err
+	}
+
+	// Convert listURL to AT URI
+	atURI, err := c.GetListUriFromUrl(listURL)
+	if err != nil {
+		return err
+	}
+
+	scanner := bufio.NewScanner(os.Stdin)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+
+		var data struct {
+			DID    string `json:"did"`
+			Handle string `json:"handle"`
+		}
+		if err := json.Unmarshal([]byte(line), &data); err != nil {
+			fmt.Printf("Error unmarshaling line: %v\n", err)
+			continue
+		}
+
+		if data.DID == "" || data.Handle == "" {
+			fmt.Printf("Invalid data: missing did or handle\n")
+			continue
+		}
+
+		log.Printf("handle: %s\n", data.Handle)
+
+		did := data.DID
+
+		// Add the actor to the list
+		createdAt := time.Now().UTC()
+		resp, err := c.ListItem(did, atURI, createdAt)
+		if err != nil {
+			fmt.Printf("Error adding DID %s to list: %v\n", did, err)
+			continue
+		}
+
+		// Print the response
+		b, err := json.MarshalIndent(resp, "", "  ")
+		if err != nil {
+			fmt.Printf("Error marshaling response for DID %s: %v\n", did, err)
+			continue
+		}
+		fmt.Printf("Added DID %s to list: %s\n", did, b)
+	}
+
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("error reading standard input: %w", err)
+	}
+
+	return nil
+}

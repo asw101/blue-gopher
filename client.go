@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -174,6 +175,23 @@ func (c *Client) GetAuthorFeed(actor string, limit int, cursor, filter string, i
 	return result, nil
 }
 
+// GetProfile retrieves the profile for a given username and returns the profile data as a map
+func (c *Client) GetProfile(actor string) (map[string]interface{}, error) {
+	url := fmt.Sprintf("%s/xrpc/app.bsky.actor.getProfile?actor=%s", c.BaseURL, url.QueryEscape(actor))
+
+	res, err := c.SendRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var profile map[string]interface{}
+	if err := json.Unmarshal(res, &profile); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response body: %w", err)
+	}
+
+	return profile, nil
+}
+
 // GetProfiles retrieves profiles from the Bluesky API using the client
 func (c *Client) GetProfiles(actors []string) (map[string]interface{}, error) {
 	if len(actors) > 25 {
@@ -293,4 +311,107 @@ func (c *Client) SearchPosts(q string, limit int, cursor, sort, since, until, me
 	}
 
 	return response, nil
+}
+
+// ListCreate creates a list in the Bluesky API
+func (c *Client) ListCreate(purpose, name, description string, createdAt time.Time) (map[string]interface{}, error) {
+	url := c.BaseURL + "/xrpc/com.atproto.repo.createRecord"
+
+	request := CreateRecordRequest{
+		Repo:       c.Session.DID,
+		Collection: "app.bsky.graph.list",
+		Record: struct {
+			Name        string `json:"name"`
+			Purpose     string `json:"purpose"`
+			Description string `json:"description,omitempty"`
+			CreatedAt   string `json:"createdAt"`
+			Type        string `json:"$type"`
+		}{
+			Name:        name,
+			Purpose:     purpose,
+			Description: description,
+			CreatedAt:   createdAt.Format(time.RFC3339),
+			Type:        "app.bsky.graph.list",
+		},
+	}
+
+	res, err := c.SendRequest("POST", url, request)
+	if err != nil {
+		return nil, err
+	}
+
+	var result map[string]interface{}
+	if err := json.Unmarshal(res, &result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response body: %w", err)
+	}
+
+	return result, nil
+}
+
+// ListItem adds a member to a list in the Bluesky API
+func (c *Client) ListItem(memberDID, targetListURI string, createdAt time.Time) (map[string]interface{}, error) {
+	url := c.BaseURL + "/xrpc/com.atproto.repo.createRecord"
+
+	request := CreateRecordRequest{
+		Repo:       c.Session.DID,
+		Collection: "app.bsky.graph.listitem",
+		Record: struct {
+			Subject   string `json:"subject"`
+			List      string `json:"list"`
+			CreatedAt string `json:"createdAt"`
+			Type      string `json:"$type"`
+		}{
+			Subject:   memberDID,
+			List:      targetListURI,
+			CreatedAt: createdAt.Format(time.RFC3339),
+			Type:      "app.bsky.graph.listitem",
+		},
+	}
+
+	res, err := c.SendRequest("POST", url, request)
+	if err != nil {
+		return nil, err
+	}
+
+	var result map[string]interface{}
+	if err := json.Unmarshal(res, &result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response body: %w", err)
+	}
+
+	return result, nil
+}
+
+// GetListUriFromUrl parses the given URL and constructs the AT URI
+func (c *Client) GetListUriFromUrl(listURL string) (string, error) {
+	// Remove any query parameters
+	listURL = strings.Split(listURL, "?")[0]
+
+	// Parse URL parts
+	parsedURL, err := url.Parse(listURL)
+	if err != nil {
+		return "", fmt.Errorf("invalid list URL: %w", err)
+	}
+
+	pathComponents := strings.Split(parsedURL.Path, "/")
+	if len(pathComponents) < 5 || !strings.Contains(listURL, "bsky.app/profile/") || !strings.Contains(listURL, "/lists/") {
+		return "", fmt.Errorf("invalid list URL format")
+	}
+
+	handle := pathComponents[2]
+	listId := pathComponents[4]
+
+	// Get user's DID first
+	profile, err := c.GetProfile(handle)
+	if err != nil {
+		return "", fmt.Errorf("failed to get profile: %w", err)
+	}
+
+	did, ok := profile["did"].(string)
+	if !ok {
+		return "", fmt.Errorf("failed to get DID from profile")
+	}
+
+	// Construct AT-URI
+	listUri := fmt.Sprintf("at://%s/app.bsky.graph.list/%s", did, listId)
+	return listUri, nil
 }
